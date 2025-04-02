@@ -86,3 +86,29 @@ jobs:
           file = drive_service.files().create(body=file_metadata, media_body=media, fields='id').execute()
           print(f'File uploaded: {file.get("id")}')
           EOF
+
+          jobs:
+  upload:
+    name: Upload APK to Google Drive
+    needs: build  # Ensures APK is built before uploading
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download APK Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: android-build
+          path: app  # Adjust if needed
+
+      - name: Install rclone
+        run: |
+          curl https://rclone.org/install.sh | sudo bash
+
+      - name: Configure rclone
+        run: |
+          mkdir -p ~/.config/rclone
+          echo "${{ secrets.RCLONE_CONFIG }}" > ~/.config/rclone/rclone.conf
+
+      - name: Upload APK to Google Drive
+        run: |
+          rclone copy app/app-debug.apk gdrive:${{ secrets.GOOGLE_DRIVE_FOLDER_ID }} -P
