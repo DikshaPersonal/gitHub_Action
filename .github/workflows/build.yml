@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -34,12 +34,11 @@ jobs:
           cd android
           ./gradlew assembleRelease
           ./gradlew bundleRelease
-
       - name: Upload APK/AAB as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-build
-          path: android/app/build/outputs/apk/release/*.apk
+          path: android/app/build/outputs/bundle/release/*.aab
 
   upload:
     name: Upload APK to Google Drive
