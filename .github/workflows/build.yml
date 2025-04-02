@@ -40,28 +40,38 @@ jobs:
           name: android-build
           path: android/app/build/outputs/bundle/release/*.aab
 
-  upload:
-    name: Upload APK to Google Drive
-    needs: build  # Ensures APK is built before uploading
-    runs-on: ubuntu-latest
+upload:
+  name: Upload APK to Google Drive
+  needs: build  # Ensures APK is built before uploading
+  runs-on: ubuntu-latest
 
-    steps:
-      - name: Download APK Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: android-build
-          path: app  # Adjust if needed
+  steps:
+    - name: Download APK Artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: android-build
+        path: app  # Adjust if needed
 
-      - name: Install rclone
-        run: |
-          curl https://rclone.org/install.sh | sudo bash
+    - name: Install rclone
+      run: |
+        curl https://rclone.org/install.sh | sudo bash
 
-      - name: Configure rclone
-        run: |
-          mkdir -p ~/.config/rclone
-          echo "${{ secrets.RCLONE_CONFIG }}" > ~/.config/rclone/rclone.conf
-          echo "${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}" > /Users/ntipl/Documents/clientids/service-account.json
+    - name: Create Google Drive credentials file
+      run: |
+        mkdir -p ~/.config/rclone
+        echo "${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}" > /home/runner/work/service-account.json
 
-      - name: Upload APK to Google Drive
-        run: |
-          rclone copy app/app-debug.apk gdrive:${{ secrets.GOOGLE_DRIVE_FOLDER_ID }} -P
+    - name: Debug Service Account File
+      run: |
+        echo "Checking service account file..."
+        ls -l /home/runner/work/service-account.json
+        cat /home/runner/work/service-account.json | head -n 5  # Print first 5 lines for verification (without exposing secrets)
+
+    - name: Configure rclone
+      run: |
+        echo "${{ secrets.RCLONE_CONFIG }}" > ~/.config/rclone/rclone.conf
+
+    - name: Upload APK to Google Drive
+      run: |
+        rclone copy app/app-debug.apk gdrive:${{ secrets.GOOGLE_DRIVE_FOLDER_ID }} -P --drive-service-account-file /home/runner/work/service-account.json
+
