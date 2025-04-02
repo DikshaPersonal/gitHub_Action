@@ -60,21 +60,13 @@ jobs:
           name: android-build
           path: android/app/build/outputs/bundle/release/*.aab
 
-      # Option 1: Upload using 'r0adkll/google-drive-upload-action' (if available)
-      - name: Upload APK/AAB to Google Drive
-        uses: r0adkll/google-drive-upload-action@master
-        with:
-          credentials_json: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
-          file: android/app/build/outputs/bundle/release/*.aab
-          folder_id: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
-        continue-on-error: true  # If this step fails, move to Option 2
-
-      # Option 2: Upload via cURL (if previous step fails)
-      - name: Upload APK/AAB via cURL
-        if: failure()
+      - name: Upload APK/AAB to Google Drive via cURL
         run: |
+          FILE_PATH="android/app/build/outputs/bundle/release/*.aab"
+          FILE_NAME=$(basename $FILE_PATH)
+
           curl -X POST -L \
           -H "Authorization: Bearer ${{ secrets.GOOGLE_ACCESS_TOKEN }}" \
-          -F "metadata={name : 'release.aab', parents: ['${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}']};type=application/json;charset=UTF-8" \
-          -F "file=@android/app/build/outputs/bundle/release/*.aab;type=application/octet-stream" \
+          -F "metadata={\"name\":\"$FILE_NAME\", \"parents\": [\"${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}\"]};type=application/json;charset=UTF-8" \
+          -F "file=@$FILE_PATH;type=application/octet-stream" \
           "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart"
