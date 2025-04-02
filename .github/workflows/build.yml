@@ -3,11 +3,11 @@ name: Build and Upload Ionic Android App
 on:
   push:
     branches:
-      - github_action  # Change this to your actual branch
+      - github_action  # Change to your actual branch
 
 jobs:
   build:
-    runs-on: ubuntu-latest  # Using Ubuntu for Android build
+    runs-on: ubuntu-latest  # Ubuntu for Android build
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -30,7 +30,7 @@ jobs:
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
-          java-version: '17'  # Required for latest Android builds
+          java-version: '17'  # Required for Android builds
 
       - name: Cache Gradle Files
         uses: actions/cache@v3
@@ -59,8 +59,8 @@ jobs:
           path: android/app/build/outputs/bundle/release/*.aab
 
       - name: Upload APK/AAB to Google Drive
-        uses: calebboyd/google-drive-upload@main
+        uses: r0adkll/upload-google-drive@v1
         with:
-          credentials: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
-          parent-id: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+          creds: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
+          parent-folder-id: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
           filename: android/app/build/outputs/bundle/release/*.aab
