@@ -32,12 +32,20 @@ jobs:
           distribution: 'temurin'
           java-version: '17'  # Required for Android builds
 
-      - name: Cache Gradle Dependencies
+      - name: Accept Android SDK Licenses
+        run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+
+      - name: Configure Gradle memory
+        run: |
+          mkdir -p android/
+          echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxPermSize=1024m" >> android/gradle.properties
+          echo "org.gradle.daemon=true" >> android/gradle.properties
+          echo "org.gradle.parallel=true" >> android/gradle.properties
+
+      - name: Cache Gradle Files
         uses: actions/cache@v3
         with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
+          path: ~/.gradle/caches
           key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: |
             gradle-${{ runner.os }}-
@@ -48,16 +56,64 @@ jobs:
       - name: Sync with Android
         run: npx cap sync android  # Ensures all necessary files are in place
 
+      # Uncomment and configure if you need to sign your app
+      # - name: Setup Android Keystore
+      #  if: ${{ secrets.RELEASE_KEYSTORE != '' }}
+      #  run: |
+      #    echo "${{ secrets.RELEASE_KEYSTORE }}" > release.keystore.base64
+      #    base64 -d release.keystore.base64 > android/app/release.keystore
+      #
+      # - name: Update gradle.properties with signing configs
+      #  if: ${{ secrets.RELEASE_KEYSTORE != '' }}
+      #  run: |
+      #    echo "RELEASE_STORE_FILE=release.keystore" >> android/gradle.properties
+      #    echo "RELEASE_STORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> android/gradle.properties
+      #    echo "RELEASE_KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> android/gradle.properties
+      #    echo "RELEASE_KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> android/gradle.properties
+
+      # Uncomment if you're using Google Services
+      # - name: Setup Google Services
+      #  if: ${{ secrets.GOOGLE_SERVICES_JSON != '' }}
+      #  run: |
+      #    echo '${{ secrets.GOOGLE_SERVICES_JSON }}' > android/app/google-services.json
+
+      - name: List Android Directory Structure
+        run: |
+          ls -la android/
+          ls -la android/app/ || echo "app directory not found"
+
+      - name: Debug Gradle Version
+        run: |
+          cd android
+          ./gradlew --version
+
+      - name: Build Android Debug APK First
+        run: |
+          cd android
+          ./gradlew assembleDebug --stacktrace --info
+
       - name: Build Android APK/AAB
         run: |
           cd android
-          ./gradlew clean assembleRelease --stacktrace --info  # Added clean to clear build cache
+          ./gradlew assembleRelease --stacktrace --info
           ./gradlew bundleRelease --stacktrace --info
 
-      - name: Upload APK/AAB as Artifact
+      - name: Upload Debug APK as Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: android-build
+          name: android-debug-build
+          path: android/app/build/outputs/apk/debug/*.apk
+
+      - name: Upload Release APK as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release-apk
+          path: android/app/build/outputs/apk/release/*.apk
+
+      - name: Upload AAB as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release-bundle
           path: android/app/build/outputs/bundle/release/*.aab
 
       - name: Create Release
@@ -71,14 +127,43 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Get AAB filename
-        id: get_aab_filename
+      - name: Find APK Files
+        id: find_apk
         run: |
-          AAB_FILE=$(ls android/app/build/outputs/bundle/release/*.aab | head -n 1)
-          echo "AAB_FILE=$AAB_FILE" >> $GITHUB_ENV
-          echo "AAB_FILENAME=$(basename $AAB_FILE)" >> $GITHUB_ENV
+          APK_FILE=$(find android/app/build/outputs/apk/release -name "*.apk" | head -n 1 || echo "")
+          if [ -n "$APK_FILE" ]; then
+            echo "APK_FILE=$APK_FILE" >> $GITHUB_ENV
+            echo "APK_FILENAME=$(basename $APK_FILE)" >> $GITHUB_ENV
+            echo "Found APK: $APK_FILE"
+          else
+            echo "No APK file found"
+          fi
 
-      - name: Upload Release Asset
+      - name: Find AAB Files
+        id: find_aab
+        run: |
+          AAB_FILE=$(find android/app/build/outputs/bundle/release -name "*.aab" | head -n 1 || echo "")
+          if [ -n "$AAB_FILE" ]; then
+            echo "AAB_FILE=$AAB_FILE" >> $GITHUB_ENV
+            echo "AAB_FILENAME=$(basename $AAB_FILE)" >> $GITHUB_ENV
+            echo "Found AAB: $AAB_FILE"
+          else
+            echo "No AAB file found"
+          fi
+
+      - name: Upload APK Release Asset
+        if: env.APK_FILE != ''
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ env.APK_FILE }}
+          asset_name: ${{ env.APK_FILENAME }}
+          asset_content_type: application/vnd.android.package-archive
+
+      - name: Upload AAB Release Asset
+        if: env.AAB_FILE != ''
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
