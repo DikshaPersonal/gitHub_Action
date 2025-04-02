@@ -1,76 +1,55 @@
-name: Build and Deploy Android Project for Capacitor
+name: Build Ionic Android App
 
 on:
   push:
     branches:
-      - github_action
+      - github_action  # Change to your actual branch
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
-      - name: Checkout code
+      - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Set up Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 20
+          node-version: 20  # Ensure you use Node.js 20 or later
 
-      - name: Install dependencies
-        run: |
-          npm install
-          npm install --save @capacitor/android
+      - name: Install Dependencies
+        run: npm install
 
-      - name: Build web assets
-        run: |
-          npm run build # Ensure your web assets are built and stored in ./www (default)
+      - name: Install Ionic & Capacitor
+        run: npm install -g @ionic/cli @capacitor/cli
 
-      - name: Sync Capacitor Android platform
-        run: |
-          npx cap sync android
+      - name: Build Ionic App
+        run: ionic build --prod
 
-      - name: Set Gradle Version
-        run: |
-          wget https://services.gradle.org/distributions/gradle-8.2.1-bin.zip -P /tmp
-          sudo mkdir -p /opt/gradle
-          sudo unzip -d /opt/gradle /tmp/gradle-8.2.1-bin.zip
-          echo "export PATH=/opt/gradle/gradle-8.2.1/bin:$PATH" >> ~/.bashrc
-          source ~/.bashrc
+      - name: Sync with Android
+        run: npx cap sync android  # Sync to make sure all necessary files are present
 
-      - name: Build Android app (Capacitor)
+      - name: Build Android APK/AAB
         run: |
           cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug --warning-mode all
+          ./gradlew assembleRelease
+          ./gradlew bundleRelease
 
-      - name: Install rclone
-        run: |
-          sudo apt-get install rclone
-          mkdir -p ~/.config/rclone
-
-      - name: Configure rclone with Google Service Account
-        run: |
-          echo "$GOOGLE_DRIVE_CREDENTIALS" > /tmp/sa.json
-          echo '[gdrive]
-          type = drive
-          scope = drive
-          service_account_file = /tmp/sa.json' > ~/.config/rclone/rclone.conf
-
-      - name: Set dummy subdomain for testing
-        run: |
-          SUBDOMAIN="dummySubdomain"
-          echo "SUBDOMAIN=$SUBDOMAIN" >> $GITHUB_ENV
-
-      - name: Upload to Google Drive
-        run: |
-          folder_id="1Dm9WcPG8OBlQ2FDvzHFsBHm-uUV1TKN3"
-          timestamp=$(date +%Y_%m_%d)
-          mv android/app/build/outputs/apk/debug/app-debug.apk android/app/build/outputs/apk/debug/${SUBDOMAIN}-${timestamp}.apk
-          rclone copy --verbose android/app/build/outputs/apk/debug/${SUBDOMAIN}-${timestamp}.apk gdrive:/ --drive-root-folder-id $folder_id
-
-      - name: Upload debug APK as artifact
+      - name: Upload APK/AAB as Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.SUBDOMAIN }}-debug
-          path: android/app/build/outputs/apk/debug/*.apk
+          name: android-build
+          path: android/app/build/outputs/bundle/release/*.aab
+
+      - name: Install gdrive
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/prasmussen/gdrive/master/install.sh | bash
+
+      - name: Authenticate gdrive
+        run: |
+          echo "${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}" > gdrive_service_key.json
+          gdrive version
+
+      - name: Upload Build to Google Drive
+        run: |
+          gdrive upload --service-account gdrive_service_key.json --parent GOOGLE_DRIVE_FOLDER_ID android/app/build/outputs/bundle/release/*.aab
