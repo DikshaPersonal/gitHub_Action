@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -34,6 +34,7 @@ jobs:
           cd android
           ./gradlew assembleRelease
           ./gradlew bundleRelease
+
       - name: Upload APK/AAB as Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -43,10 +44,18 @@ jobs:
       - name: Install gdrive
         run: |
           curl -fsSL https://raw.githubusercontent.com/prasmussen/gdrive/master/install.sh | bash
+
       - name: Authenticate gdrive
         run: |
           echo "${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}" > gdrive_service_key.json
           gdrive version
+
+      - name: Debug gdrive upload
+        run: |
+          # Debugging: Check if the AAB file exists before uploading
+          ls android/app/build/outputs/bundle/release/
+          gdrive upload --service-account gdrive_service_key.json --parent ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }} android/app/build/outputs/bundle/release/*.aab --debug
+
       - name: Upload Build to Google Drive
         run: |
-          gdrive upload --service-account gdrive_service_key.json --parent ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}" android/app/build/outputs/bundle/release/*.aab
+          gdrive upload --service-account gdrive_service_key.json --parent ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }} android/app/build/outputs/bundle/release/*.aab
