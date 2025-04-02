@@ -1,13 +1,15 @@
-name: Build Ionic Android App
+name: Build and Upload APK
 
 on:
   push:
     branches:
-      - github_action  # Change to your actual branch
+      - action_main  # Change to your branch name if needed
 
 jobs:
   build:
-    runs-on: macos-latest
+    name: Build Ionic Android APK
+    runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -15,24 +17,46 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 20  # Ensure you use Node.js 20 or later
+          node-version: 20
 
       - name: Install Dependencies
         run: npm install
 
-      - name: Install Ionic & Capacitor
+      - name: Install Ionic & Capacitor CLI
         run: npm install -g @ionic/cli @capacitor/cli
 
-      - name: Build Ionic App
+      - name: Build Ionic Project
         run: ionic build --prod
 
-      - name: Upload APK to Google Drive
-        uses: timife/upload-to-drive@main
-        with:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
-          GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
-          FILE_PATH: platforms/android/app/build/outputs/apk/release/app-release.apk
-          FILE_NAME: app-release.apk
+      - name: Sync Capacitor Android
+        run: npx cap sync android
 
-      - name: Sync with Android
-        run: npx cap sync android  # Sync to make sure all necessary files are present
+      - name: Build Android Debug APK
+        run: |
+          cd android
+          ./gradlew assembleDebug
+
+      - name: Upload APK to GitHub Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+
+  upload:
+    name: Upload APK to Google Drive
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download APK Artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: debug-apk
+          path: .
+
+      - name: Upload to Google Drive
+        uses: andreppires/google-drive-upload-action@v1
+        with:
+          credentials: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
+          filename: "app-debug.apk"
+          folderId: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
