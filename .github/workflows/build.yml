@@ -7,8 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest  # Use Ubuntu instead of macOS
-
+    runs-on: macos-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -16,10 +15,10 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 18  # Use a stable LTS version
+          node-version: 20  # Ensure you use Node.js 20 or later
 
       - name: Install Dependencies
-        run: npm install --no-optional
+        run: npm install
 
       - name: Install Ionic & Capacitor
         run: npm install -g @ionic/cli @capacitor/cli
@@ -27,14 +26,21 @@ jobs:
       - name: Build Ionic App
         run: ionic build --prod
 
+      - name: Add Android Platform
+        run: npx cap add android  # Add Android platform if not already added
+
+      - name: Sync with Android
+        run: npx cap sync android  # Sync to make sure all necessary files are present
+
       - name: Build Android APK/AAB
         run: |
           cd android
-          ./gradlew assembleRelease --no-daemon
-          ./gradlew bundleRelease --no-daemon
+          ./gradlew assembleRelease
+          ./gradlew bundleRelease
 
       - name: Upload APK/AAB as Artifact
-        uses: actions/upload-artifact@v4  # Use a stable version
+        uses: actions/upload-artifact@v4
         with:
           name: android-build
           path: android/app/build/outputs/bundle/release/*.aab
+
