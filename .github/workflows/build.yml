@@ -24,6 +24,11 @@ jobs:
       - name: Install Ionic and Capacitor
         run: npm install -g @ionic/cli @capacitor/core @capacitor/cli
 
+      - name: Clean Gradle Cache
+        run: |
+          rm -rf ~/.gradle/caches/
+          rm -rf ~/.gradle/wrapper/
+
       - name: Build Ionic App
         run: ionic build --prod
 
