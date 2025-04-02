@@ -34,8 +34,13 @@ jobs:
       - name: Build Ionic Project
         run: ionic build --prod
 
-      - name: Add Android Platform
-        run: npx cap add android
+      - name: Ensure Android Platform Exists
+        run: |
+          if [ ! -d "android" ]; then
+            npx cap add android
+          else
+            echo "Android platform already exists, skipping..."
+          fi
 
       - name: Build Android APK
         run: |
