@@ -34,7 +34,7 @@ jobs:
           ./gradlew bundleRelease --no-daemon
 
       - name: Upload APK/AAB as Artifact
-        uses: actions/upload-artifact@v3.2.1  # Use a stable version
+        uses: actions/upload-artifact@v4  # Use a stable version
         with:
           name: android-build
           path: android/app/build/outputs/bundle/release/*.aab
