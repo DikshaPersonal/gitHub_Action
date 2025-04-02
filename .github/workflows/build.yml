@@ -62,5 +62,9 @@ jobs:
           echo "${{ secrets.RCLONE_CONFIG }}" > ~/.config/rclone/rclone.conf
 
       - name: Upload APK to Google Drive
-        run: |
-          rclone copy app/*.apk gdrive:${{ secrets.GOOGLE_DRIVE_FOLDER_ID }} -P
+        uses: gary-kim/google-drive-upload-action@v1
+        with:
+          credentials: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
+          folderId: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+          filename: android/app/build/outputs/apk/release/app-release.apk
+
