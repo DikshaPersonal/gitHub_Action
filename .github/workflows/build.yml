@@ -37,9 +37,9 @@ jobs:
 
      - name: Build Android APK with Debugging
        run: |
-        cd android
-        ./gradlew assembleRelease --stacktrace --info
-        cd ..
+          cd android
+          ./gradlew assembleRelease --stacktrace --info
+          cd ..
 
       - name: Install rclone
         run: |
