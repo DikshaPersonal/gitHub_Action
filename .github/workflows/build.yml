@@ -1,13 +1,14 @@
-name: Build and Upload Ionic App
+name: Build and Upload Ionic App to Google Drive
 
 on:
   push:
     branches:
-      - github_action  # Change this to your preferred branch
+      - main  # Change this to your preferred branch
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -35,9 +36,15 @@ jobs:
           ./gradlew assembleRelease
           cd ..
 
+      - name: Install rclone
+        run: |
+          curl https://rclone.org/install.sh | sudo bash
+
+      - name: Configure rclone
+        run: |
+          mkdir -p ~/.config/rclone
+          echo "${{ secrets.GDRIVE_RCLONE_CONFIG }}" > ~/.config/rclone/rclone.conf
+
       - name: Upload APK to Google Drive
-        uses: wdzeng/google-drive-upload-action@v1
-        with:
-          credentials_json: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
-          filename: android/app/build/outputs/apk/release/app-release.apk
-          folder_id: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+        run: |
+          rclone copy android/app/build/outputs/apk/release/app-release.apk gdrive:/IonicBuilds
