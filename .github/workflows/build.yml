@@ -1,97 +1,43 @@
-name: Build and Upload Ionic Android App to Google Drive
+name: Build and Upload Ionic App
 
 on:
   push:
     branches:
-      - github_action  # Change to your branch name
+      - github_action  # Change this to your preferred branch
 
 jobs:
-  build-and-upload:
+  build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Setup Node.js
+      - name: Install Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 20
+          node-version: 18
 
       - name: Install Dependencies
         run: npm install
 
-      - name: Install Ionic & Capacitor
-        run: npm install -g @ionic/cli @capacitor/cli
+      - name: Install Ionic and Capacitor
+        run: npm install -g @ionic/cli @capacitor/core @capacitor/cli
 
       - name: Build Ionic App
         run: ionic build --prod
 
-      - name: Setup Java 17
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Sync with Android
+      - name: Copy Web Files to Android
         run: npx cap sync android
-
-      - name: Set Gradle Permissions
-        run: cd android && chmod +x ./gradlew
 
       - name: Build Android APK
         run: |
           cd android
-          ./gradlew assembleDebug --stacktrace
-
-      - name: Install Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-
-      - name: Install Google Drive API Client
-        run: pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib
+          ./gradlew assembleRelease
+          cd ..
 
       - name: Upload APK to Google Drive
-        env:
-          GOOGLE_DRIVE_CREDENTIALS: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
-          FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
-        run: |
-          echo "$GOOGLE_DRIVE_CREDENTIALS" > credentials.json
-          python - <<EOF
-          import os
-          import glob
-          from googleapiclient.discovery import build
-          from googleapiclient.http import MediaFileUpload
-          from google.oauth2 import service_account
-
-          # Setup credentials and Drive API
-          SCOPES = ['https://www.googleapis.com/auth/drive']
-          credentials = service_account.Credentials.from_service_account_file('credentials.json', scopes=SCOPES)
-          drive_service = build('drive', 'v3', credentials=credentials)
-
-          # Find APK file
-          folder_id = os.environ.get('FOLDER_ID')
-          apk_files = glob.glob('android/app/build/outputs/apk/debug/*.apk')
-
-          if not apk_files:
-              print("No APK files found!")
-              exit(1)
-
-          # Upload the APK file to Google Drive
-          for file_path in apk_files:
-              file_name = os.path.basename(file_path)
-              print(f"Uploading {file_name} to Google Drive...")
-
-              file_metadata = {
-                  'name': file_name,
-                  'parents': [folder_id]
-              }
-
-              media = MediaFileUpload(file_path, resumable=True)
-              file = drive_service.files().create(body=file_metadata, media_body=media, fields='id, name, webViewLink').execute()
-
-              print(f"Uploaded file: {file.get('name')}")
-              print(f"File ID: {file.get('id')}")
-              print(f"Web link: {file.get('webViewLink')}")
-          EOF
+        uses: wdzeng/google-drive-upload-action@v1
+        with:
+          credentials_json: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
+          filename: android/app/build/outputs/apk/release/app-release.apk
+          folder_id: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
