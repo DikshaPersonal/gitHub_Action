@@ -16,7 +16,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 23.6.0  # Change if your project uses a different version
+          node-version: 18  # Change if your project uses a different version
 
       - name: Install Dependencies
         run: npm install
@@ -37,7 +37,7 @@ jobs:
           ./gradlew bundleRelease
 
       - name: Upload APK/AAB as Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v2  # Use version 2 to avoid version issue
         with:
           name: android-build
-          path: android/app/build/outputs/bundle/release/*.aab
+          path: android/app/build/outputs/bundle/release/*.aab  # Correct path for the .aab file
