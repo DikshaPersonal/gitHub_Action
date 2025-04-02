@@ -62,9 +62,27 @@ jobs:
           echo "${{ secrets.RCLONE_CONFIG }}" > ~/.config/rclone/rclone.conf
 
       - name: Upload APK to Google Drive
-        uses: logickoder/google-drive-upload@test
-        with:
-          credentials: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
-          folderId: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
-          filename: android/app/build/outputs/apk/release/app-release.apk
+        env:
+          GDRIVE_CREDENTIALS: ${{ secrets.GDRIVE_CREDENTIALS }}
+          GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+        run: |
+          echo "$GDRIVE_CREDENTIALS" > credentials.json
+          pip install --upgrade google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client
 
+          python <<EOF
+          import os
+          from googleapiclient.discovery import build
+          from googleapiclient.http import MediaFileUpload
+          from google.oauth2 import service_account
+
+          SCOPES = ['https://www.googleapis.com/auth/drive.file']
+          creds = service_account.Credentials.from_service_account_file('credentials.json', scopes=SCOPES)
+          drive_service = build('drive', 'v3', credentials=creds)
+
+          folder_id = os.getenv('GOOGLE_DRIVE_FOLDER_ID')
+          file_metadata = {'name': 'app-debug.apk', 'parents': [folder_id]}
+          media = MediaFileUpload('android/app/build/outputs/apk/debug/app-debug.apk', mimetype='application/vnd.android.package-archive')
+
+          file = drive_service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+          print(f'File uploaded: {file.get("id")}')
+          EOF
