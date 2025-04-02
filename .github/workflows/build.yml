@@ -1,13 +1,13 @@
-name: Build and Upload Ionic Android App
+name: Build and Upload Ionic Android App to Google Drive
 
 on:
   push:
     branches:
-      - github_action  # Change to your actual branch
+      - main  # Change to your branch name
 
 jobs:
-  build:
-    runs-on: ubuntu-latest  # Ubuntu for Android build
+  build-and-upload:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -15,7 +15,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 20  # Ensure Ionic works correctly
+          node-version: 20
 
       - name: Install Dependencies
         run: npm install
@@ -30,145 +30,67 @@ jobs:
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
-          java-version: '17'  # Required for Android builds
-
-      - name: Accept Android SDK Licenses
-        run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-
-      - name: Configure Gradle memory
-        run: |
-          mkdir -p android/
-          echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxPermSize=1024m" >> android/gradle.properties
-          echo "org.gradle.daemon=true" >> android/gradle.properties
-          echo "org.gradle.parallel=true" >> android/gradle.properties
-
-      - name: Cache Gradle Files
-        uses: actions/cache@v3
-        with:
-          path: ~/.gradle/caches
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-
+          java-version: '17'
 
       - name: Add Android Platform
         run: npx cap add android || echo "Android platform already added"
 
       - name: Sync with Android
-        run: npx cap sync android  # Ensures all necessary files are in place
+        run: npx cap sync android
 
-      # Uncomment and configure if you need to sign your app
-      # - name: Setup Android Keystore
-      #  if: ${{ secrets.RELEASE_KEYSTORE != '' }}
-      #  run: |
-      #    echo "${{ secrets.RELEASE_KEYSTORE }}" > release.keystore.base64
-      #    base64 -d release.keystore.base64 > android/app/release.keystore
-      #
-      # - name: Update gradle.properties with signing configs
-      #  if: ${{ secrets.RELEASE_KEYSTORE != '' }}
-      #  run: |
-      #    echo "RELEASE_STORE_FILE=release.keystore" >> android/gradle.properties
-      #    echo "RELEASE_STORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> android/gradle.properties
-      #    echo "RELEASE_KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> android/gradle.properties
-      #    echo "RELEASE_KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> android/gradle.properties
-
-      # Uncomment if you're using Google Services
-      # - name: Setup Google Services
-      #  if: ${{ secrets.GOOGLE_SERVICES_JSON != '' }}
-      #  run: |
-      #    echo '${{ secrets.GOOGLE_SERVICES_JSON }}' > android/app/google-services.json
-
-      - name: List Android Directory Structure
-        run: |
-          ls -la android/
-          ls -la android/app/ || echo "app directory not found"
-
-      - name: Debug Gradle Version
+      - name: Build Android APK
         run: |
           cd android
-          ./gradlew --version
+          ./gradlew assembleDebug --stacktrace
 
-      - name: Build Android Debug APK First
-        run: |
-          cd android
-          ./gradlew assembleDebug --stacktrace --info
-
-      - name: Build Android APK/AAB
-        run: |
-          cd android
-          ./gradlew assembleRelease --stacktrace --info
-          ./gradlew bundleRelease --stacktrace --info
-
-      - name: Upload Debug APK as Artifact
-        uses: actions/upload-artifact@v4
+      - name: Install Python
+        uses: actions/setup-python@v4
         with:
-          name: android-debug-build
-          path: android/app/build/outputs/apk/debug/*.apk
+          python-version: '3.9'
 
-      - name: Upload Release APK as Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-release-apk
-          path: android/app/build/outputs/apk/release/*.apk
+      - name: Install Google Drive API Client
+        run: pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib
 
-      - name: Upload AAB as Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-release-bundle
-          path: android/app/build/outputs/bundle/release/*.aab
-
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
+      - name: Upload APK to Google Drive
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: v${{ github.run_number }}
-          release_name: Release v${{ github.run_number }}
-          draft: false
-          prerelease: false
-
-      - name: Find APK Files
-        id: find_apk
+          GOOGLE_DRIVE_CREDENTIALS: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
+          FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
         run: |
-          APK_FILE=$(find android/app/build/outputs/apk/release -name "*.apk" | head -n 1 || echo "")
-          if [ -n "$APK_FILE" ]; then
-            echo "APK_FILE=$APK_FILE" >> $GITHUB_ENV
-            echo "APK_FILENAME=$(basename $APK_FILE)" >> $GITHUB_ENV
-            echo "Found APK: $APK_FILE"
-          else
-            echo "No APK file found"
-          fi
+          echo "$GOOGLE_DRIVE_CREDENTIALS" > credentials.json
+          python - <<EOF
+          import os
+          import glob
+          from googleapiclient.discovery import build
+          from googleapiclient.http import MediaFileUpload
+          from google.oauth2 import service_account
 
-      - name: Find AAB Files
-        id: find_aab
-        run: |
-          AAB_FILE=$(find android/app/build/outputs/bundle/release -name "*.aab" | head -n 1 || echo "")
-          if [ -n "$AAB_FILE" ]; then
-            echo "AAB_FILE=$AAB_FILE" >> $GITHUB_ENV
-            echo "AAB_FILENAME=$(basename $AAB_FILE)" >> $GITHUB_ENV
-            echo "Found AAB: $AAB_FILE"
-          else
-            echo "No AAB file found"
-          fi
+          # Setup credentials and Drive API
+          SCOPES = ['https://www.googleapis.com/auth/drive']
+          credentials = service_account.Credentials.from_service_account_file('credentials.json', scopes=SCOPES)
+          drive_service = build('drive', 'v3', credentials=credentials)
 
-      - name: Upload APK Release Asset
-        if: env.APK_FILE != ''
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ env.APK_FILE }}
-          asset_name: ${{ env.APK_FILENAME }}
-          asset_content_type: application/vnd.android.package-archive
+          # Find APK file
+          folder_id = os.environ.get('FOLDER_ID')
+          apk_files = glob.glob('android/app/build/outputs/apk/debug/*.apk')
 
-      - name: Upload AAB Release Asset
-        if: env.AAB_FILE != ''
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ env.AAB_FILE }}
-          asset_name: ${{ env.AAB_FILENAME }}
-          asset_content_type: application/octet-stream
+          if not apk_files:
+              print("No APK files found!")
+              exit(1)
+
+          # Upload the APK file to Google Drive
+          for file_path in apk_files:
+              file_name = os.path.basename(file_path)
+              print(f"Uploading {file_name} to Google Drive...")
+
+              file_metadata = {
+                  'name': file_name,
+                  'parents': [folder_id]
+              }
+
+              media = MediaFileUpload(file_path, resumable=True)
+              file = drive_service.files().create(body=file_metadata, media_body=media, fields='id, name, webViewLink').execute()
+
+              print(f"Uploaded file: {file.get('name')}")
+              print(f"File ID: {file.get('id')}")
+              print(f"Web link: {file.get('webViewLink')}")
+          EOF
