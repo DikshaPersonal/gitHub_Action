@@ -26,9 +26,6 @@ jobs:
       - name: Build Ionic App
         run: ionic build --prod
 
-      - name: Add Android Platform
-        run: npx cap add android  # Add Android platform if not already added
-
       - name: Sync with Android
         run: npx cap sync android  # Sync to make sure all necessary files are present
 
