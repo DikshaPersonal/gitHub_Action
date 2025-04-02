@@ -32,9 +32,6 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Add Android Platform
-        run: npx cap add android || echo "Android platform already added"
-
       - name: Sync with Android
         run: npx cap sync android
 
