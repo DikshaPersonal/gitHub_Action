@@ -22,6 +22,10 @@ jobs:
           npm install
           npm install --save @capacitor/android
 
+      - name: Build web assets
+        run: |
+          npm run build # Ensure your web assets are built and stored in ./www (default)
+
       - name: Sync Capacitor Android platform
         run: |
           npx cap sync android
