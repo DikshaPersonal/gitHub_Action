@@ -50,17 +50,17 @@ jobs:
           scope = drive
           service_account_file = /tmp/sa.json' > ~/.config/rclone/rclone.conf
 
-      - name: Extract subdomain from APIClient.kt
+      - name: Set dummy subdomain for testing
         run: |
-          # Extract subdomain from APIClient.kt using grep and sed
-          SUBDOMAIN=$(grep "BASE_URL" android/app/src/main/java/com/bitla/mba/tsoperator/api/APIClient.kt | sed -n 's/.https:\/\/\([^.]\).*/\1/p')
+          # Hardcoding a dummy subdomain value
+          SUBDOMAIN="dummySubdomain"
           echo "SUBDOMAIN=$SUBDOMAIN" >> $GITHUB_ENV
 
       - name: Upload to Google Drive
         run: |
           folder_id="1Dm9WcPG8OBlQ2FDvzHFsBHm-uUV1TKN3"
           timestamp=$(date +%Y_%m_%d)
-          # Use the extracted subdomain to rename APK
+          # Use the dummy subdomain to rename APK
           mv android/app/build/outputs/apk/debug/app-debug.apk android/app/build/outputs/apk/debug/${SUBDOMAIN}-${timestamp}.apk
           rclone copy --verbose android/app/build/outputs/apk/debug/${SUBDOMAIN}-${timestamp}.apk gdrive:/ --drive-root-folder-id $folder_id
 
