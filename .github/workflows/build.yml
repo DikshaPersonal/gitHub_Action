@@ -1,61 +1,44 @@
-name: Build and Upload Ionic Android APK
+name: Build Ionic Android App
 
 on:
   push:
     branches:
-      - action_main  # Adjust to your default branch
+      - github_action  # Change to your actual branch
 
 jobs:
   build:
-    name: Build APK
-    runs-on: ubuntu-latest
-
+    runs-on: macos-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Set Up Java Environment
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Set Up Node.js Environment
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '20'
+          node-version: 20  # Ensure you use Node.js 20 or later
 
-      - name: Install Global Dependencies
-        run: npm install -g @ionic/cli @capacitor/cli
-
-      - name: Install Project Dependencies
+      - name: Install Dependencies
         run: npm install
 
-      - name: Build Ionic Project
+      - name: Install Ionic & Capacitor
+        run: npm install -g @ionic/cli @capacitor/cli
+
+      - name: Build Ionic App
         run: ionic build --prod
 
-      - name: Clean Android Platform (Fix Missing Files)
-        run: |
-          rm -rf android
-          npx cap add android
-          npx cap sync android
+      - name: Sync with Android
+        run: npx cap sync android  # Sync to make sure all necessary files are present
 
-      - name: Use Correct Gradle Version
+      - name: Build Android APK/AAB
         run: |
           cd android
-          chmod +x gradlew
-          ./gradlew wrapper --gradle-version 8.1
-
-      - name: Build Android APK
-        run: |
-          cd android
-          ./gradlew assembleDebug
-
-      - name: Upload APK to GitHub Artifacts
+          ./gradlew assembleRelease
+          ./gradlew bundleRelease
+      - name: Upload APK/AAB as Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug.apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: android-build
+          path: android/app/build/outputs/bundle/release/*.aab
 
   upload:
     name: Upload APK to Google Drive
