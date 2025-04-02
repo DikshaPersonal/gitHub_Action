@@ -24,9 +24,6 @@ jobs:
       - name: Install Ionic & Capacitor
         run: npm install -g @ionic/cli @capacitor/cli
 
-      - name: Add Android Platform
-        run: npx cap add android  # Add Android platform if not already added
-
       - name: Build Ionic App
         run: ionic build --prod
 
