@@ -34,13 +34,17 @@ jobs:
       - name: Build Ionic Project
         run: ionic build --prod
 
-      - name: Ensure Android Platform Exists
+      - name: Clean Android Platform (Fix Missing Files)
         run: |
-          if [ ! -d "android" ]; then
-            npx cap add android
-          else
-            echo "Android platform already exists, skipping..."
-          fi
+          rm -rf android
+          npx cap add android
+          npx cap sync android
+
+      - name: Use Correct Gradle Version
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew wrapper --gradle-version 8.1
 
       - name: Build Android APK
         run: |
