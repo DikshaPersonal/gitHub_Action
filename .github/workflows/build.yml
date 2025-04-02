@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest  # Change to Ubuntu for better compatibility
+    runs-on: macos-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -15,7 +15,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 20  # Use Node.js 20
+          node-version: 20  # Ensure you use Node.js 20 or later
 
       - name: Install Dependencies
         run: npm install
@@ -27,7 +27,7 @@ jobs:
         run: ionic build --prod
 
       - name: Sync with Android
-        run: npx cap sync android  # Sync necessary files
+        run: npx cap sync android  # Sync to make sure all necessary files are present
 
       - name: Build Android APK/AAB
         run: |
@@ -43,16 +43,13 @@ jobs:
 
       - name: Install gdrive
         run: |
-          curl -L -o gdrive.tar.gz https://github.com/glotlabs/gdrive/releases/latest/download/gdrive-linux-x64.tar.gz
-          tar -xzf gdrive.tar.gz
-          chmod +x gdrive
-          sudo mv gdrive /usr/local/bin/
+          curl -fsSL https://raw.githubusercontent.com/prasmussen/gdrive/master/install.sh | bash
 
       - name: Authenticate gdrive
         run: |
           echo "${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}" > gdrive_service_key.json
-          gdrive about
+          gdrive version
 
       - name: Upload Build to Google Drive
         run: |
-          gdrive upload --service-account gdrive_service_key.json --parent ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }} android/app/build/outputs/bundle/release/*.aab
+          gdrive upload --service-account gdrive_service_key.json --parent GOOGLE_DRIVE_FOLDER_ID android/app/build/outputs/bundle/release/*.aab
