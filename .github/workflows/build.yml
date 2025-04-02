@@ -1,14 +1,13 @@
-name: Build Ionic Android App
+name: Build and Upload Ionic Android App
 
 on:
   push:
     branches:
-      - github_action  # Change to your actual branch
+      - github_action  # Change this to your actual branch
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-
+    runs-on: ubuntu-latest  # Using Ubuntu for Android build
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -16,15 +15,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 20  # Ensure you use Node.js 20 or later
-
-      - name: Cache Node Modules
-        uses: actions/cache@v3
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+          node-version: 20  # Ensure Ionic works correctly
 
       - name: Install Dependencies
         run: npm install
@@ -35,24 +26,31 @@ jobs:
       - name: Build Ionic App
         run: ionic build --prod
 
-      - name: Sync with Android
-        run: npx cap sync android
+      - name: Setup Java 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'  # Required for latest Android builds
 
       - name: Cache Gradle Files
         uses: actions/cache@v3
         with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
+          path: ~/.gradle/caches
           key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: |
             gradle-${{ runner.os }}-
 
+      - name: Add Android Platform
+        run: npx cap add android || echo "Android platform already added"
+
+      - name: Sync with Android
+        run: npx cap sync android  # Ensures all necessary files are in place
+
       - name: Build Android APK/AAB
         run: |
           cd android
-          ./gradlew assembleRelease
-          ./gradlew bundleRelease
+          ./gradlew assembleRelease --stacktrace --info
+          ./gradlew bundleRelease --stacktrace --info
 
       - name: Upload APK/AAB as Artifact
         uses: actions/upload-artifact@v4
@@ -60,13 +58,9 @@ jobs:
           name: android-build
           path: android/app/build/outputs/bundle/release/*.aab
 
-      - name: Upload APK/AAB to Google Drive via cURL
-        run: |
-          FILE_PATH="android/app/build/outputs/bundle/release/*.aab"
-          FILE_NAME=$(basename $FILE_PATH)
-
-          curl -X POST -L \
-          -H "Authorization: Bearer ${{ secrets.GOOGLE_ACCESS_TOKEN }}" \
-          -F "metadata={\"name\":\"$FILE_NAME\", \"parents\": [\"${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}\"]};type=application/json;charset=UTF-8" \
-          -F "file=@$FILE_PATH;type=application/octet-stream" \
-          "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart"
+      - name: Upload APK/AAB to Google Drive
+        uses: calebboyd/google-drive-upload@main
+        with:
+          credentials: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
+          parent-id: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+          filename: android/app/build/outputs/bundle/release/*.aab
