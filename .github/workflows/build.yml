@@ -53,8 +53,8 @@ jobs:
           path: .
 
       - name: Upload to Google Drive
-        uses: rjstone/upload-google-drive@v1
+        uses: googleworkspace/google-drive-upload@v1
         with:
-          credentials: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
-          filename: 'app-debug.apk'
-          folderId: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+          credentials_json: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
+          local_path: app/app-debug.apk
+          drive_folder_id: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
