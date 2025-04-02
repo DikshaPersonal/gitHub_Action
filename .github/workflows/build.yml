@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -34,11 +34,12 @@ jobs:
           cd android
           ./gradlew assembleRelease
           ./gradlew bundleRelease
+
       - name: Upload APK/AAB as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-build
-          path: android/app/build/outputs/bundle/release/*.aab
+          path: android/app/build/outputs/apk/release/*.apk
 
   upload:
     name: Upload APK to Google Drive
@@ -49,12 +50,18 @@ jobs:
       - name: Download APK Artifact
         uses: actions/download-artifact@v4
         with:
-          name: app-debug.apk
-          path: .
+          name: android-build
+          path: app
 
-      - name: Upload to Google Drive
-        uses: googleworkspace/google-drive-upload@v1
-        with:
-          credentials_json: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
-          local_path: app/app-debug.apk
-          drive_folder_id: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+      - name: Install rclone
+        run: |
+          curl https://rclone.org/install.sh | sudo bash
+
+      - name: Configure rclone
+        run: |
+          mkdir -p ~/.config/rclone
+          echo "${{ secrets.RCLONE_CONFIG }}" > ~/.config/rclone/rclone.conf
+
+      - name: Upload APK to Google Drive
+        run: |
+          rclone copy app/*.apk gdrive:${{ secrets.GOOGLE_DRIVE_FOLDER_ID }} -P
