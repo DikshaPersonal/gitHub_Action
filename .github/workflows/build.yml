@@ -26,36 +26,13 @@ jobs:
       - name: Build Ionic App
         run: ionic build --prod
 
+      - name: Upload APK to Google Drive
+        uses: timife/upload-to-drive@main
+        with:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
+          GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+          FILE_PATH: platforms/android/app/build/outputs/apk/release/app-release.apk
+          FILE_NAME: app-release.apk
+
       - name: Sync with Android
         run: npx cap sync android  # Sync to make sure all necessary files are present
-
-      - name: Build Android APK/AAB
-        run: |
-          cd android
-          ./gradlew assembleRelease
-          ./gradlew bundleRelease
-
-      - name: Upload APK/AAB as Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-build
-          path: android/app/build/outputs/bundle/release/*.aab
-
-      - name: Install gdrive
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/prasmussen/gdrive/master/install.sh | bash
-
-      - name: Authenticate gdrive
-        run: |
-          echo "${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}" > gdrive_service_key.json
-          gdrive version
-
-      - name: Debug gdrive upload
-        run: |
-          # Debugging: Check if the AAB file exists before uploading
-          ls android/app/build/outputs/bundle/release/
-          gdrive upload --service-account gdrive_service_key.json --parent ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }} android/app/build/outputs/bundle/release/*.aab --debug
-
-      - name: Upload Build to Google Drive
-        run: |
-          gdrive upload --service-account gdrive_service_key.json --parent ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }} android/app/build/outputs/bundle/release/*.aab
