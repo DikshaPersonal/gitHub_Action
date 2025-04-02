@@ -7,7 +7,8 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -17,14 +18,13 @@ jobs:
         with:
           node-version: 20  # Ensure you use Node.js 20 or later
 
-      # Cache npm dependencies
-      - name: Cache npm dependencies
+      - name: Cache Node Modules
         uses: actions/cache@v3
         with:
-          path: ~/.npm
-          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            npm-${{ runner.os }}-
+            ${{ runner.os }}-node-
 
       - name: Install Dependencies
         run: npm install
@@ -36,25 +36,17 @@ jobs:
         run: ionic build --prod
 
       - name: Sync with Android
-        run: npx cap sync android  # Sync to make sure all necessary files are present
+        run: npx cap sync android
 
-      # Cache Gradle dependencies
-      - name: Cache Gradle dependencies
+      - name: Cache Gradle Files
         uses: actions/cache@v3
         with:
-          path: ~/.gradle/caches
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
           key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: |
             gradle-${{ runner.os }}-
-
-      # Cache Gradle wrapper
-      - name: Cache Gradle wrapper
-        uses: actions/cache@v3
-        with:
-          path: ~/.gradle/wrapper
-          key: gradle-wrapper-${{ runner.os }}-${{ hashFiles('**/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-wrapper-${{ runner.os }}-
 
       - name: Build Android APK/AAB
         run: |
@@ -62,15 +54,27 @@ jobs:
           ./gradlew assembleRelease
           ./gradlew bundleRelease
 
-      - name: Upload APK/AAB to Google Drive
-        uses: r0adkll/google-drive-upload-action@v1.1.0
-        with:
-          credentials_json: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}  # Use the uploaded secret
-          file: android/app/build/outputs/bundle/release/*.aab  # Path to the .aab file
-          folder_id: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }} # Optional: specify a folder ID if needed
-
       - name: Upload APK/AAB as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-build
           path: android/app/build/outputs/bundle/release/*.aab
+
+      # Option 1: Upload using 'r0adkll/google-drive-upload-action' (if available)
+      - name: Upload APK/AAB to Google Drive
+        uses: r0adkll/google-drive-upload-action@master
+        with:
+          credentials_json: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
+          file: android/app/build/outputs/bundle/release/*.aab
+          folder_id: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+        continue-on-error: true  # If this step fails, move to Option 2
+
+      # Option 2: Upload via cURL (if previous step fails)
+      - name: Upload APK/AAB via cURL
+        if: failure()
+        run: |
+          curl -X POST -L \
+          -H "Authorization: Bearer ${{ secrets.GOOGLE_ACCESS_TOKEN }}" \
+          -F "metadata={name : 'release.aab', parents: ['${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}']};type=application/json;charset=UTF-8" \
+          -F "file=@android/app/build/outputs/bundle/release/*.aab;type=application/octet-stream" \
+          "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart"
