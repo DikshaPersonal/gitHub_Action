@@ -62,7 +62,7 @@ jobs:
           echo "${{ secrets.RCLONE_CONFIG }}" > ~/.config/rclone/rclone.conf
 
       - name: Upload APK to Google Drive
-        uses: gary-kim/google-drive-upload-action@v1
+        uses: w1ndsen/google-drive-upload-action@v1
         with:
           credentials: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
           folderId: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
