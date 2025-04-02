@@ -3,7 +3,7 @@ name: Build Ionic Android App
 on:
   push:
     branches:
-      - github_action  # Change to your actual branch
+      - action_main  # Change to your actual branch
 
 jobs:
   build:
