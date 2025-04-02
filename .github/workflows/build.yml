@@ -3,7 +3,7 @@ name: Build Ionic Android App
 on:
   push:
     branches:
-      - github_action  # Runs when code is pushed to the main branch
+      - github_action  # Change to github_action if that's the intended branch
 
 jobs:
   build:
@@ -16,7 +16,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 18  # Change if your project uses a different version
+          node-version: 18  # Change to LTS Node.js version, 16.x or 18.x
 
       - name: Install Dependencies
         run: npm install
