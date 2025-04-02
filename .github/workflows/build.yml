@@ -3,7 +3,7 @@ name: Build and Upload Ionic App to Google Drive
 on:
   push:
     branches:
-      - main  # Change this to your preferred branch
+      - github_action  # Change this to your preferred branch
 
 jobs:
   build:
