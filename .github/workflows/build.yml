@@ -30,12 +30,19 @@ jobs:
         run: |
           npx cap sync android
 
+      - name: Set Gradle Version
+        run: |
+          wget https://services.gradle.org/distributions/gradle-8.2.1-bin.zip -P /tmp
+          sudo mkdir -p /opt/gradle
+          sudo unzip -d /opt/gradle /tmp/gradle-8.2.1-bin.zip
+          echo "export PATH=/opt/gradle/gradle-8.2.1/bin:$PATH" >> ~/.bashrc
+          source ~/.bashrc
+
       - name: Build Android app (Capacitor)
         run: |
-          # Navigate to the Android directory where gradlew is located
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug --warning-mode all
 
       - name: Install rclone
         run: |
@@ -52,7 +59,6 @@ jobs:
 
       - name: Set dummy subdomain for testing
         run: |
-          # Hardcoding a dummy subdomain value
           SUBDOMAIN="dummySubdomain"
           echo "SUBDOMAIN=$SUBDOMAIN" >> $GITHUB_ENV
 
@@ -60,7 +66,6 @@ jobs:
         run: |
           folder_id="1Dm9WcPG8OBlQ2FDvzHFsBHm-uUV1TKN3"
           timestamp=$(date +%Y_%m_%d)
-          # Use the dummy subdomain to rename APK
           mv android/app/build/outputs/apk/debug/app-debug.apk android/app/build/outputs/apk/debug/${SUBDOMAIN}-${timestamp}.apk
           rclone copy --verbose android/app/build/outputs/apk/debug/${SUBDOMAIN}-${timestamp}.apk gdrive:/ --drive-root-folder-id $folder_id
 
