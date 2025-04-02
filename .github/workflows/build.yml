@@ -35,7 +35,7 @@ jobs:
           ./gradlew assembleRelease
           ./gradlew bundleRelease
 
-       - name: Upload APK/AAB to Google Drive
+      - name: Upload APK/AAB to Google Drive
         uses: r0adkll/google-drive-upload-action@v1.1.0
         with:
           credentials_json: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}  # Use the uploaded secret
@@ -47,6 +47,3 @@ jobs:
         with:
           name: android-build
           path: android/app/build/outputs/bundle/release/*.aab
-
-
-
