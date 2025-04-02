@@ -40,7 +40,7 @@ jobs:
           name: android-build
           path: android/app/build/outputs/bundle/release/*.aab
 
-upload:
+  upload:
   name: Upload APK to Google Drive
   needs: build  # Ensures APK is built before uploading
   runs-on: ubuntu-latest
@@ -74,4 +74,3 @@ upload:
     - name: Upload APK to Google Drive
       run: |
         rclone copy app/app-debug.apk gdrive:${{ secrets.GOOGLE_DRIVE_FOLDER_ID }} -P --drive-service-account-file /home/runner/work/service-account.json
-
