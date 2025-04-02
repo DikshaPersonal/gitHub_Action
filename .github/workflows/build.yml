@@ -40,4 +40,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: android-build
-          path: android/app/build/outputs/**/*.aab
+          path: android/app/build/outputs/bundle/release/*.aab
