@@ -58,9 +58,30 @@ jobs:
           name: android-build
           path: android/app/build/outputs/bundle/release/*.aab
 
-      - name: Upload APK/AAB to Google Drive
-        uses: r0adkll/upload-google-drive@v1
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          creds: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
-          parent-folder-id: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
-          filename: android/app/build/outputs/bundle/release/*.aab
+          tag_name: v${{ github.run_number }}
+          release_name: Release v${{ github.run_number }}
+          draft: false
+          prerelease: false
+
+      - name: Get AAB filename
+        id: get_aab_filename
+        run: |
+          AAB_FILE=$(ls android/app/build/outputs/bundle/release/*.aab | head -n 1)
+          echo "AAB_FILE=$AAB_FILE" >> $GITHUB_ENV
+          echo "AAB_FILENAME=$(basename $AAB_FILE)" >> $GITHUB_ENV
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ env.AAB_FILE }}
+          asset_name: ${{ env.AAB_FILENAME }}
+          asset_content_type: application/octet-stream
