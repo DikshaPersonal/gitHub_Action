@@ -53,7 +53,7 @@ jobs:
           path: .
 
       - name: Upload to Google Drive
-        uses: andreppires/google-drive-upload-action@v1
+        uses: rjstone/upload-google-drive@v1
         with:
           credentials: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
           filename: 'app-debug.apk'
