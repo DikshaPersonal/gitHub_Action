@@ -12,25 +12,25 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up JDK
-        uses: actions/setup-java@v3
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
         with:
-          distribution: 'temurin'
-          java-version: '17'
-          cache: gradle
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+          node-version: 18
 
       - name: Install dependencies
         run: |
           npm install
           npm install --save @capacitor/android
 
-      - name: Build the Android app (Capacitor)
+      - name: Sync Capacitor Android platform
         run: |
           npx cap sync android
-          npx cap open android
+
+      - name: Build Android app (Capacitor)
+        run: |
+          # Navigate to the Android directory where gradlew is located
+          cd android
+          chmod +x gradlew
           ./gradlew assembleDebug
 
       - name: Install rclone
