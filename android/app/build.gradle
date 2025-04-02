@@ -22,13 +22,6 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
-    buildCache {
-    local {
-        enabled = true
-        directory = new File(rootDir, 'build-cache')
-    }
-}
-
 }
 
 repositories {
