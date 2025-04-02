@@ -1,0 +1,43 @@
+name: Build Ionic Android App
+
+on:
+  push:
+    branches:
+      - github_action  # Runs when code is pushed to the main branch
+
+jobs:
+  build:
+    runs-on: macos-latest  # Use macOS runner
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 23.6.0  # Change if your project uses a different version
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Install Ionic & Capacitor
+        run: npm install -g @ionic/cli @capacitor/cli
+
+      - name: Build Ionic App
+        run: ionic build --prod
+
+      - name: Sync with Android
+        run: npx cap sync android
+
+      - name: Build Android APK/AAB
+        run: |
+          cd android
+          ./gradlew assembleRelease
+          ./gradlew bundleRelease
+
+      - name: Upload APK/AAB as Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: android-build
+          path: android/app/build/outputs/**/*.aab
