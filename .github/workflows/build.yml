@@ -68,6 +68,9 @@ jobs:
           ls -l /home/runner/work/service-account.json
           cat /home/runner/work/service-account.json | head -n 5  # Print first 5 lines for verification (without exposing secrets)
 
+      - name: Check JSON Format
+        run: cat /home/runner/work/service-account.json | jq .
+
       - name: Configure rclone
         run: |
           echo "${{ secrets.RCLONE_CONFIG }}" > ~/.config/rclone/rclone.conf
