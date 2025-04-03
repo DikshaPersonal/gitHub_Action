@@ -94,32 +94,8 @@ jobs:
           rclone listremotes  # Check if rclone detects 'gdrive'
           rclone lsd gdrive: --drive-service-account-file /tmp/sa.json || echo "Failed to list Google Drive contents"
 
-      - name: Check if AAB Exists
-        run: |
-          echo "Verifying that the AAB file exists..."
-          ls -lh app/  # List files in the app directory
-          AAB_FILE=$(ls app/*.aab 2>/dev/null | head -n 1)
-          if [ -z "$AAB_FILE" ]; then
-            echo "❌ AAB file not found! Build might have failed or artifact was not stored correctly."
-            exit 1
-          fi
-          echo "✅ Found AAB file: $AAB_FILE"
+      - name: Rename AAB file
+        run: mv android/app/build/outputs/bundle/release/app-release.aab app-release-$(date +%Y%m%d%H%M).aab
 
-      - name: Debug & Upload AAB to Google Drive
-        run: |
-          echo "Checking AAB build directory..."
-          ls -lh android/app/build/outputs/bundle/release/ || echo "❌ AAB directory not found!"
-
-          echo "Looking for AAB file..."
-          AAB_FILE=$(find android/app/build/outputs/bundle/release/ -name "*.aab" | head -n 1)
-
-          if [ -z "$AAB_FILE" ]; then
-            echo "❌ No AAB file found! Exiting..."
-            exit 1
-          fi
-
-          echo "✅ Found AAB file: $AAB_FILE"
-
-          echo "Uploading AAB file to Google Drive..."
-          rclone copy "$AAB_FILE" gdrive:${{ secrets.GOOGLE_DRIVE_FOLDER_ID }} -P --drive-service-account-file "/tmp/sa.json" -vv
-
+      - name: Upload AAB to Google Drive
+        run: rclone copy app-release-*.aab gdrive:*** -P --drive-service-account-file "/tmp/sa.json" -vv
