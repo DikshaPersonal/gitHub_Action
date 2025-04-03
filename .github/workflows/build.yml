@@ -17,6 +17,30 @@ jobs:
         with:
           node-version: 20
 
+      - name: Extract API domain for filename
+        run: |
+          # Find the api-factory.ts file
+          API_FACTORY_FILE=$(find . -name "api-factory.ts" -type f)
+
+          if [ -z "$API_FACTORY_FILE" ]; then
+            echo "Warning: api-factory.ts file not found, using default name"
+            echo "DOMAIN_NAME=default" >> $GITHUB_ENV
+          else
+            # Extract domain from BASE_URL in api-factory.ts
+            DOMAIN=$(grep -o 'BASE_URL\s*=\s*"https\?://[^/]*/' "$API_FACTORY_FILE" | grep -o 'https\?://[^/]*' | sed 's/https\?:\/\///')
+
+            # Further extract just the subdomain part (e.g., "cbus-qa1" from "cbus-qa1.ticketsimply.co.in")
+            SUBDOMAIN=$(echo "$DOMAIN" | cut -d. -f1)
+
+            if [ -z "$SUBDOMAIN" ]; then
+              echo "Warning: Could not extract domain name, using default"
+              echo "DOMAIN_NAME=default" >> $GITHUB_ENV
+            else
+              echo "Extracted domain name: $SUBDOMAIN"
+              echo "DOMAIN_NAME=$SUBDOMAIN" >> $GITHUB_ENV
+            fi
+          fi
+
       - name: Install Dependencies
         run: npm install
 
@@ -46,9 +70,12 @@ jobs:
             exit 1
           fi
           TIMESTAMP=$(date +%Y%m%d%H%M)
-          cp "$AAB_FILE" "app/app-release-$TIMESTAMP.aab"
-          echo "AAB file copied to app/app-release-$TIMESTAMP.aab"
-          echo "AAB_FILENAME=app-release-$TIMESTAMP.aab" >> $GITHUB_ENV
+          DOMAIN_NAME="${{ env.DOMAIN_NAME }}"
+          # Create filename with domain name and timestamp
+          AAB_FILENAME="${DOMAIN_NAME}-release-${TIMESTAMP}.aab"
+          cp "$AAB_FILE" "app/$AAB_FILENAME"
+          echo "AAB file copied to app/$AAB_FILENAME"
+          echo "AAB_FILENAME=$AAB_FILENAME" >> $GITHUB_ENV
 
       - name: Upload APK/AAB as Artifact
         uses: actions/upload-artifact@v4
