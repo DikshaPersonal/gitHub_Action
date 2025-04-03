@@ -35,28 +35,36 @@ jobs:
           ./gradlew assembleRelease
           ./gradlew bundleRelease
 
+      - name: Create output directory
+        run: mkdir -p app
+
       - name: Rename AAB file
         run: |
-          mkdir -p app
-          mv android/app/build/outputs/bundle/release/app-release.aab app/app-release-$(date +%Y%m%d%H%M).aab
+          AAB_FILE=$(find android/app/build/outputs/bundle/release -name "*.aab" -type f)
+          if [ -z "$AAB_FILE" ]; then
+            echo "AAB file not found!"
+            exit 1
+          fi
+          TIMESTAMP=$(date +%Y%m%d%H%M)
+          cp "$AAB_FILE" "app/app-release-$TIMESTAMP.aab"
+          echo "AAB file copied to app/app-release-$TIMESTAMP.aab"
 
       - name: Upload APK/AAB as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-build
-          path: app/app-release-*.aab
+          path: app/*.aab
 
   upload:
     name: Upload APK to Google Drive
     needs: build
     runs-on: ubuntu-latest
-
     steps:
       - name: Download APK Artifact
         uses: actions/download-artifact@v4
         with:
           name: android-build
-          path: app  # Ensure this path contains the APK
+          path: app  # Download to the app directory
 
       - name: List Downloaded Files
         run: |
@@ -94,8 +102,5 @@ jobs:
           rclone listremotes  # Check if rclone detects 'gdrive'
           rclone lsd gdrive: --drive-service-account-file /tmp/sa.json || echo "Failed to list Google Drive contents"
 
-      - name: Rename AAB file
-        run: mv android/app/build/outputs/bundle/release/app-release.aab app-release-$(date +%Y%m%d%H%M).aab
-
       - name: Upload AAB to Google Drive
-        run: rclone copy app-release-*.aab gdrive:*** -P --drive-service-account-file "/tmp/sa.json" -vv
+        run: rclone copy app/*.aab gdrive:AppBuilds -P --drive-service-account-file "/tmp/sa.json" -vv
