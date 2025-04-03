@@ -43,7 +43,7 @@ jobs:
 
   upload:
     name: Upload APK to Google Drive
-    needs: build  # Ensures APK is built before uploading
+    needs: build
     runs-on: ubuntu-latest
 
     steps:
@@ -51,30 +51,40 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: android-build
-          path: app  # Adjust if needed
+          path: app  # Ensure this path contains the APK
 
       - name: Install rclone
         run: |
           curl https://rclone.org/install.sh | sudo bash
-
-      - name: Create Google Drive credentials file
-        run: |
-          mkdir -p ~/.config/rclone
-          echo "${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}" > /home/runner/work/service-account.json
-
-      - name: Debug Service Account File
-        run: |
-          echo "Checking service account file..."
-          ls -l /home/runner/work/service-account.json
-          cat /home/runner/work/service-account.json | head -n 5  # Print first 5 lines for verification (without exposing secrets)
-
-      - name: Check JSON Format
-        run: cat /home/runner/work/service-account.json | jq .
+          rclone version  # Check if rclone is installed properly
 
       - name: Configure rclone
         run: |
-          echo "${{ secrets.RCLONE_CONFIG }}" > ~/.config/rclone/rclone.conf
+          mkdir -p ~/.config/rclone
+          echo '[gdrive]
+          type = drive
+          scope = drive
+          service_account_file = /tmp/sa.json' > ~/.config/rclone/rclone.conf
+
+      - name: Create Google Drive credentials file
+        run: |
+          echo '${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}' > /tmp/sa.json
+          chmod 600 /tmp/sa.json  # Set proper permissions
+
+      - name: Verify Service Account JSON
+        run: |
+          echo "Checking service account file..."
+          if ! jq empty /tmp/sa.json; then
+            echo "Invalid JSON format in service account file!" && exit 1
+          fi
+          cat /tmp/sa.json | head -n 10  # Show first 10 lines for debugging
+
+      - name: Test rclone Connection
+        run: |
+          rclone listremotes  # Check if rclone detects 'gdrive'
+          rclone lsd gdrive: --drive-service-account-file /tmp/sa.json || echo "Failed to list Google Drive contents"
 
       - name: Upload APK to Google Drive
         run: |
-          rclone copy app/app-debug.apk gdrive:${{ secrets.GOOGLE_DRIVE_FOLDER_ID }} -P --drive-service-account-file /home/runner/work/service-account.json
+          ls -lh app  # Check if APK exists
+          rclone copy app gdrive:${{ secrets.GOOGLE_DRIVE_FOLDER_ID }} -P --drive-service-account-file /tmp/sa.json
