@@ -100,15 +100,21 @@ jobs:
           fi
           echo "✅ Found AAB file: $AAB_FILE"
 
-      - name: Rename AAB File
-        run: |
+     - name: Rename AAB File with Timestamp
+       run: |
+          TIMESTAMP=$(date +"%Y%m%d-%H%M")
           AAB_FILE=$(ls app/*.aab 2>/dev/null | head -n 1)
+
           if [ -z "$AAB_FILE" ]; then
             echo "❌ No AAB file found for renaming."
             exit 1
           fi
-          mv "$AAB_FILE" app/app-release.aab
-          echo "✅ Renamed AAB file to app-release.aab"
+
+          NEW_NAME="app/app-release-$TIMESTAMP.aab"
+          mv "$AAB_FILE" "$NEW_NAME"
+
+          echo "✅ Renamed AAB file to $NEW_NAME"
+
 
       - name: Delete Existing AAB from Google Drive (Optional)
         run: |
