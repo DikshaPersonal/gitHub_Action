@@ -144,7 +144,7 @@ jobs:
 
           # Change this to your folder ID where you want to upload
           # Leave empty to upload to root of the service account's drive
-          FOLDER_ID = '${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}'
+          FOLDER_ID = '${{ secrets.GOOGLE_DRIVE_FOLDER_ID_DEBUG_APK }}'
 
           # Find APK file to upload
           apk_files = glob.glob('app/*.apk')
