@@ -84,6 +84,14 @@ jobs:
           rclone listremotes  # Check if rclone detects 'gdrive'
           rclone lsd gdrive: --drive-service-account-file /tmp/sa.json || echo "Failed to list Google Drive contents"
 
+      - name: Check if APK Exists
+        run: |
+          ls -lh app  # List files in the app directory
+          if [ ! -f "app/app-debug.apk" ]; then
+           echo "❌ APK file not found! Check if the build was successful."
+          exit 1
+          fi
+
       - name: Upload APK to Google Drive
         run: |
           ls -lh app  # Check if APK exists
