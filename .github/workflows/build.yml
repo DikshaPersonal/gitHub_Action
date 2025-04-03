@@ -35,11 +35,16 @@ jobs:
           ./gradlew assembleRelease
           ./gradlew bundleRelease
 
+      - name: Rename AAB file
+        run: |
+          mkdir -p app
+          mv android/app/build/outputs/bundle/release/app-release.aab app/app-release-$(date +%Y%m%d%H%M).aab
+
       - name: Upload APK/AAB as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-build
-          path: android/app/build/outputs/bundle/release/*.aab
+          path: app/app-release-*.aab
 
   upload:
     name: Upload APK to Google Drive
@@ -100,22 +105,7 @@ jobs:
           fi
           echo "✅ Found AAB file: $AAB_FILE"
 
-      - name: Rename AAB File with Timestamp
-        run: |
-          TIMESTAMP=$(date +"%Y%m%d-%H%M")
-          AAB_FILE=$(ls app/*.aab 2>/dev/null | head -n 1)
-
-          if [ -z "$AAB_FILE" ]; then
-            echo "❌ No AAB file found for renaming."
-            exit 1
-          fi
-
-          NEW_NAME="app/app-release-$TIMESTAMP.aab"
-          mv "$AAB_FILE" "$NEW_NAME"
-
-          echo "✅ Renamed AAB file to $NEW_NAME"
-
       - name: Upload AAB to Google Drive
         run: |
-          echo "Uploading renamed AAB file to Google Drive..."
-          rclone copy "app/app-release-*.aab" "gdrive:${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}" -P --drive-service-account-file /tmp/sa.json -vv
+          echo "Uploading AAB file to Google Drive..."
+          rclone copy android/app/build/outputs/bundle/release/ gdrive:${{ secrets.GOOGLE_DRIVE_FOLDER_ID }} -P --drive-service-account-file "/tmp/sa.json" -vv
