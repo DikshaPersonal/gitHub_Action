@@ -103,4 +103,8 @@ jobs:
           rclone lsd gdrive: --drive-service-account-file /tmp/sa.json || echo "Failed to list Google Drive contents"
 
       - name: Upload AAB to Google Drive
-        run: rclone copy app/*.aab gdrive:AppBuilds -P --drive-service-account-file "/tmp/sa.json" -vv
+        run: |
+          echo "Files to upload:"
+          ls -la app/
+          echo "Attempting upload with rclone..."
+          rclone copy app/*.aab gdrive:AppBuilds -P --drive-service-account-file "/tmp/sa.json" --verbose --dump-bodies
