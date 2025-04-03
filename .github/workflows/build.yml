@@ -1,4 +1,4 @@
-name: Build Ionic Android App
+name: Build and Upload Ionic Android App
 
 on:
   push:
@@ -15,7 +15,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 20  # Ensure you use Node.js 20 or later
+          node-version: 20
 
       - name: Install Dependencies
         run: npm install
@@ -27,7 +27,7 @@ jobs:
         run: ionic build --prod
 
       - name: Sync with Android
-        run: npx cap sync android  # Sync to make sure all necessary files are present
+        run: npx cap sync android
 
       - name: Build Android APK/AAB
         run: |
@@ -38,7 +38,7 @@ jobs:
       - name: Create output directory
         run: mkdir -p app
 
-      - name: Rename AAB file
+      - name: Find and copy AAB file
         run: |
           AAB_FILE=$(find android/app/build/outputs/bundle/release -name "*.aab" -type f)
           if [ -z "$AAB_FILE" ]; then
@@ -48,6 +48,7 @@ jobs:
           TIMESTAMP=$(date +%Y%m%d%H%M)
           cp "$AAB_FILE" "app/app-release-$TIMESTAMP.aab"
           echo "AAB file copied to app/app-release-$TIMESTAMP.aab"
+          echo "AAB_FILENAME=app-release-$TIMESTAMP.aab" >> $GITHUB_ENV
 
       - name: Upload APK/AAB as Artifact
         uses: actions/upload-artifact@v4
@@ -56,55 +57,93 @@ jobs:
           path: app/*.aab
 
   upload:
-    name: Upload APK to Google Drive
+    name: Upload to Google Drive
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Download APK Artifact
+      - name: Download APK/AAB Artifact
         uses: actions/download-artifact@v4
         with:
           name: android-build
-          path: app  # Download to the app directory
+          path: app
 
-      - name: List Downloaded Files
+      - name: Display available files
         run: |
-          echo "Checking contents of the 'app' directory..."
-          ls -lh app/
-
-      - name: Install rclone
-        run: |
-          curl https://rclone.org/install.sh | sudo bash
-          rclone version  # Check if rclone is installed properly
-
-      - name: Configure rclone
-        run: |
-          mkdir -p ~/.config/rclone
-          echo '[gdrive]
-          type = drive
-          scope = drive
-          service_account_file = /tmp/sa.json' > ~/.config/rclone/rclone.conf
-
-      - name: Create Google Drive credentials file
-        run: |
-          echo '${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}' > /tmp/sa.json
-          chmod 600 /tmp/sa.json  # Set proper permissions
-
-      - name: Verify Service Account JSON
-        run: |
-          echo "Checking service account file..."
-          if ! jq empty /tmp/sa.json; then
-            echo "Invalid JSON format in service account file!" && exit 1
-          fi
-          cat /tmp/sa.json | head -n 10  # Show first 10 lines for debugging
-
-      - name: Test rclone Connection
-        run: |
-          rclone listremotes  # Check if rclone detects 'gdrive'
-          rclone lsd gdrive: --drive-service-account-file /tmp/sa.json || echo "Failed to list Google Drive contents"
-
-      - name: Upload AAB to Google Drive
-        run: |
-          echo "Files to upload:"
+          echo "Files available for upload:"
           ls -la app/
-          echo "Attempting upload with rclone..."
-          rclone copy app/*.aab gdrive:AppBuilds -P --drive-service-account-file "/tmp/sa.json" --verbose --dump-bodies
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Google API client library
+        run: pip install google-api-python-client
+
+      - name: Create credentials file
+        run: |
+          echo '${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}' > credentials.json
+          chmod 600 credentials.json
+
+      - name: Upload to Google Drive
+        run: |
+          echo "Starting upload to Google Drive..."
+          python - <<EOF
+          from googleapiclient.discovery import build
+          from googleapiclient.http import MediaFileUpload
+          from google.oauth2 import service_account
+          import os, glob
+
+          # Set up credentials
+          SCOPES = ['https://www.googleapis.com/auth/drive']
+          credentials = service_account.Credentials.from_service_account_file('credentials.json', scopes=SCOPES)
+
+          # Create Drive API client
+          drive_service = build('drive', 'v3', credentials=credentials)
+
+          # Change this to your folder ID where you want to upload
+          # Leave empty to upload to root of the service account's drive
+          FOLDER_ID = '${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}'
+
+          # Find AAB file to upload
+          aab_files = glob.glob('app/*.aab')
+
+          if not aab_files:
+              print("No AAB files found!")
+              exit(1)
+
+          for file_path in aab_files:
+              file_name = os.path.basename(file_path)
+
+              file_metadata = {
+                  'name': file_name
+              }
+
+              # If folder ID is provided, set parent folder
+              if FOLDER_ID:
+                  file_metadata['parents'] = [FOLDER_ID]
+
+              media = MediaFileUpload(
+                  file_path,
+                  resumable=True
+              )
+
+              print(f"Uploading {file_name} to Google Drive...")
+
+              file = drive_service.files().create(
+                  body=file_metadata,
+                  media_body=media,
+                  fields='id,name'
+              ).execute()
+
+              print(f"Upload complete! File ID: {file['id']}, Name: {file['name']}")
+
+              # Make the file accessible via link (anyone with link can view)
+              drive_service.permissions().create(
+                  fileId=file['id'],
+                  body={'type': 'anyone', 'role': 'reader'},
+                  fields='id'
+              ).execute()
+
+              print(f"File shared with link access. View at: https://drive.google.com/file/d/{file['id']}/view")
+          EOF
