@@ -15,7 +15,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 20
+          node-version: 20  # Ensure you use Node.js 20 or later
 
       - name: Install Dependencies
         run: npm install
@@ -27,7 +27,7 @@ jobs:
         run: ionic build --prod
 
       - name: Sync with Android
-        run: npx cap sync android
+        run: npx cap sync android  # Sync to make sure all necessary files are present
 
       - name: Build Android APK/AAB
         run: |
@@ -45,20 +45,23 @@ jobs:
     name: Upload APK to Google Drive
     needs: build
     runs-on: ubuntu-latest
+
     steps:
       - name: Download APK Artifact
         uses: actions/download-artifact@v4
         with:
           name: android-build
-          path: app
+          path: app  # Ensure this path contains the APK
 
       - name: List Downloaded Files
-        run: ls -lh app/
+        run: |
+          echo "Checking contents of the 'app' directory..."
+          ls -lh app/
 
       - name: Install rclone
         run: |
           curl https://rclone.org/install.sh | sudo bash
-          rclone version
+          rclone version  # Check if rclone is installed properly
 
       - name: Configure rclone
         run: |
@@ -71,20 +74,28 @@ jobs:
       - name: Create Google Drive credentials file
         run: |
           echo '${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}' > /tmp/sa.json
-          chmod 600 /tmp/sa.json
+          chmod 600 /tmp/sa.json  # Set proper permissions
 
       - name: Verify Service Account JSON
         run: |
-          jq empty /tmp/sa.json || { echo "Invalid JSON format in service account file!"; exit 1; }
+          echo "Checking service account file..."
+          if ! jq empty /tmp/sa.json; then
+            echo "Invalid JSON format in service account file!" && exit 1
+          fi
+          cat /tmp/sa.json | head -n 10  # Show first 10 lines for debugging
 
       - name: Test rclone Connection
-        run: rclone lsd gdrive: --drive-service-account-file /tmp/sa.json
+        run: |
+          rclone listremotes  # Check if rclone detects 'gdrive'
+          rclone lsd gdrive: --drive-service-account-file /tmp/sa.json || echo "Failed to list Google Drive contents"
 
       - name: Check if AAB Exists
         run: |
+          echo "Verifying that the AAB file exists..."
+          ls -lh app/  # List files in the app directory
           AAB_FILE=$(ls app/*.aab 2>/dev/null | head -n 1)
           if [ -z "$AAB_FILE" ]; then
-            echo "❌ AAB file not found!"
+            echo "❌ AAB file not found! Build might have failed or artifact was not stored correctly."
             exit 1
           fi
           echo "✅ Found AAB file: $AAB_FILE"
@@ -93,16 +104,18 @@ jobs:
         run: |
           TIMESTAMP=$(date +"%Y%m%d-%H%M")
           AAB_FILE=$(ls app/*.aab 2>/dev/null | head -n 1)
+
+          if [ -z "$AAB_FILE" ]; then
+            echo "❌ No AAB file found for renaming."
+            exit 1
+          fi
+
           NEW_NAME="app/app-release-$TIMESTAMP.aab"
           mv "$AAB_FILE" "$NEW_NAME"
-          echo "✅ Renamed to: $NEW_NAME"
+
+          echo "✅ Renamed AAB file to $NEW_NAME"
 
       - name: Upload AAB to Google Drive
         run: |
-          AAB_FILE=$(ls app/app-release-*.aab 2>/dev/null | head -n 1)
-          if [ -z "$AAB_FILE" ]; then
-            echo "❌ No renamed AAB file found for upload."
-            exit 1
-          fi
-          echo "Uploading $AAB_FILE to Google Drive..."
-          rclone copy "$AAB_FILE" gdrive:${{ secrets.GOOGLE_DRIVE_FOLDER_ID }} --drive-service-account-file /tmp/sa.json -P
+          echo "Uploading renamed AAB file to Google Drive..."
+          rclone copy "app/app-release-*.aab" "gdrive:${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}" -P --drive-service-account-file /tmp/sa.json -vv
