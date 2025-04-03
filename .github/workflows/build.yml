@@ -79,7 +79,7 @@ jobs:
             echo "AAB file not found!"
             exit 1
           fi
-          TIMESTAMP=$(date +%Y%m%d%H%M)
+          TIMESTAMP=$(date +%Y_%m_%d)
           # Clean up domain name to ensure it's just the hostname without protocol
           DOMAIN_NAME="${{ env.DOMAIN_NAME }}"
           # Remove any "https://" or "http://" if present
