@@ -26,17 +26,27 @@ jobs:
             echo "Warning: api-factory.ts file not found, using default name"
             echo "DOMAIN_NAME=default" >> $GITHUB_ENV
           else
-            # Extract domain from BASE_URL in api-factory.ts
-            DOMAIN=$(grep -o 'BASE_URL\s*=\s*"https\?://[^/]*/' "$API_FACTORY_FILE" | grep -o 'https\?://[^/]*' | sed 's/https\?:\/\///')
+            echo "Found API factory file: $API_FACTORY_FILE"
+            # Cat the file for debugging
+            echo "File content:"
+            cat "$API_FACTORY_FILE"
 
-            # Further extract just the subdomain part (e.g., "cbus-qa1" from "cbus-qa1.ticketsimply.co.in")
+            # Extract domain from BASE_URL using a more robust approach
+            BASE_URL=$(grep -o 'BASE_URL\s*=\s*"[^"]*"' "$API_FACTORY_FILE" | grep -o '"[^"]*"' | tr -d '"')
+            echo "Extracted BASE_URL: $BASE_URL"
+
+            # Extract domain without protocol
+            DOMAIN=$(echo "$BASE_URL" | sed -E 's|^https?://||' | sed -E 's|/.*$||')
+            echo "Extracted domain: $DOMAIN"
+
+            # Further extract just the subdomain part
             SUBDOMAIN=$(echo "$DOMAIN" | cut -d. -f1)
+            echo "Extracted subdomain: $SUBDOMAIN"
 
             if [ -z "$SUBDOMAIN" ]; then
               echo "Warning: Could not extract domain name, using default"
               echo "DOMAIN_NAME=default" >> $GITHUB_ENV
             else
-              echo "Extracted domain name: $SUBDOMAIN"
               echo "DOMAIN_NAME=$SUBDOMAIN" >> $GITHUB_ENV
             fi
           fi
@@ -70,9 +80,14 @@ jobs:
             exit 1
           fi
           TIMESTAMP=$(date +%Y%m%d%H%M)
+          # Clean up domain name to ensure it's just the hostname without protocol
           DOMAIN_NAME="${{ env.DOMAIN_NAME }}"
+          # Remove any "https://" or "http://" if present
+          DOMAIN_NAME=$(echo "$DOMAIN_NAME" | sed 's|^https://||' | sed 's|^http://||')
           # Create filename with domain name and timestamp
           AAB_FILENAME="${DOMAIN_NAME}-release-${TIMESTAMP}.aab"
+          # Show what we're copying
+          echo "Copying $AAB_FILE to app/$AAB_FILENAME"
           cp "$AAB_FILE" "app/$AAB_FILENAME"
           echo "AAB file copied to app/$AAB_FILENAME"
           echo "AAB_FILENAME=$AAB_FILENAME" >> $GITHUB_ENV
