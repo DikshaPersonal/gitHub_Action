@@ -100,6 +100,25 @@ jobs:
           fi
           echo "✅ Found AAB file: $AAB_FILE"
 
+      - name: Rename AAB File
+        run: |
+          AAB_FILE=$(ls app/*.aab 2>/dev/null | head -n 1)
+          if [ -z "$AAB_FILE" ]; then
+            echo "❌ No AAB file found for renaming."
+            exit 1
+          fi
+          mv "$AAB_FILE" app/app-release.aab
+          echo "✅ Renamed AAB file to app-release.aab"
+
+      - name: Delete Existing AAB from Google Drive (Optional)
+        run: |
+          rclone delete gdrive:${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}/app-release.aab --drive-service-account-file /tmp/sa.json || echo "No existing file found."
+
+      - name: Upload AAB to Google Drive
+        run: |
+          echo "Uploading renamed AAB file to Google Drive..."
+          rclone copy app/app-release.aab gdrive:${{ secrets.GOOGLE_DRIVE_FOLDER_ID }} -P --drive-service-account-file /tmp/sa.json --ignore-existing -vv
+
       - name: Upload AAB to Google Drive
         run: |
           AAB_FILE=$(ls app/*.aab 2>/dev/null | head -n 1)
