@@ -5,6 +5,6 @@ export class ApiFactory {
   BASE_URL:any;
 
   constructor() {
-    this.BASE_URL = "https://cbus-qa1.ticketsimply.co.in/";
+    this.BASE_URL = "https://jpsb-qa1.ticketsimply.co.in/";
   }
 }
