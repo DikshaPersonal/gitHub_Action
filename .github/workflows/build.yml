@@ -100,8 +100,8 @@ jobs:
           fi
           echo "✅ Found AAB file: $AAB_FILE"
 
-     - name: Rename AAB File with Timestamp
-       run: |
+      - name: Rename AAB File with Timestamp
+        run: |
           TIMESTAMP=$(date +"%Y%m%d-%H%M")
           AAB_FILE=$(ls app/*.aab 2>/dev/null | head -n 1)
 
@@ -115,22 +115,7 @@ jobs:
 
           echo "✅ Renamed AAB file to $NEW_NAME"
 
-
-      - name: Delete Existing AAB from Google Drive (Optional)
-        run: |
-          rclone delete gdrive:${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}/app-release.aab --drive-service-account-file /tmp/sa.json || echo "No existing file found."
-
       - name: Upload AAB to Google Drive
         run: |
           echo "Uploading renamed AAB file to Google Drive..."
-          rclone copy app/app-release.aab gdrive:${{ secrets.GOOGLE_DRIVE_FOLDER_ID }} -P --drive-service-account-file /tmp/sa.json --ignore-existing -vv
-
-      - name: Upload AAB to Google Drive
-        run: |
-          AAB_FILE=$(ls app/*.aab 2>/dev/null | head -n 1)
-          if [ -z "$AAB_FILE" ]; then
-            echo "❌ No AAB file found for upload."
-            exit 1
-          fi
-          echo "Uploading $AAB_FILE to Google Drive..."
-          rclone copy "$AAB_FILE" gdrive:${{ secrets.GOOGLE_DRIVE_FOLDER_ID }} -P --drive-service-account-file /tmp/sa.json -vv
+          rclone copy "app/app-release-*.aab" gdrive:${{ secrets.GOOGLE_DRIVE_FOLDER_ID }} -P --drive-service-account-file /tmp/sa.json -vv
