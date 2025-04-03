@@ -105,7 +105,21 @@ jobs:
           fi
           echo "✅ Found AAB file: $AAB_FILE"
 
-      - name: Upload AAB to Google Drive
+      - name: Debug & Upload AAB to Google Drive
         run: |
+          echo "Checking AAB build directory..."
+          ls -lh android/app/build/outputs/bundle/release/ || echo "❌ AAB directory not found!"
+
+          echo "Looking for AAB file..."
+          AAB_FILE=$(find android/app/build/outputs/bundle/release/ -name "*.aab" | head -n 1)
+
+          if [ -z "$AAB_FILE" ]; then
+            echo "❌ No AAB file found! Exiting..."
+            exit 1
+          fi
+
+          echo "✅ Found AAB file: $AAB_FILE"
+
           echo "Uploading AAB file to Google Drive..."
-          rclone copy android/app/build/outputs/bundle/release/ gdrive:${{ secrets.GOOGLE_DRIVE_FOLDER_ID }} -P --drive-service-account-file "/tmp/sa.json" -vv
+          rclone copy "$AAB_FILE" gdrive:${{ secrets.GOOGLE_DRIVE_FOLDER_ID }} -P --drive-service-account-file "/tmp/sa.json" -vv
+
