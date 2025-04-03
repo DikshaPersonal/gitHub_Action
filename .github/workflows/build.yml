@@ -3,7 +3,7 @@ name: Build and Upload Ionic Android App
 on:
   push:
     branches:
-      - action_main  # Change to your actual branch
+      - main  # Change to your actual branch
 
 jobs:
   build:
